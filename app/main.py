@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import medication_routes, conflict_routes
+from app.routes import medication_routes, conflict_routes, timeline_routes
 
 app = FastAPI()
 
@@ -9,3 +9,4 @@ def root():
 
 app.include_router(medication_routes.router)
 app.include_router(conflict_routes.router)
+app.include_router(timeline_routes.router)
