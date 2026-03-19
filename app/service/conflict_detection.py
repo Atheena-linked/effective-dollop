@@ -7,13 +7,13 @@ def detect_conflicts(records):
     for record in records:
         source = record["source"]
 
-    for med in record["medications"]:
-        name = med["name"].lower()
-        med_map[name].append({
-            "source": source,
-            "dosssage": med["dosage"],
-            "frequency": med["frequency"]
-        })
+        for med in record["medications"]:
+            name = med["name"].lower()
+            med_map[name].append({
+                "source": source,
+                "dosage": med["dosage"],
+                "frequency": med["frequency"]
+            })
 
     conflicts = []
 
