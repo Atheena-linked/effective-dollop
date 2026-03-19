@@ -19,7 +19,7 @@ def detect_conflicts(records):
             med_map[name].append({
                 "source": source,
                 "dosage": normalize_dosage(med.get("dosage")),
-                "frequency": normalize_frequency(med.get("frequency"))
+                "frequency": normalize_frequency(med.get("frequency")),
                 "priority": SOURCE_PRIORITY.get(source, 0)
             })
 
@@ -54,5 +54,4 @@ def detect_conflicts(records):
                 })
 
     return conflicts
-
     

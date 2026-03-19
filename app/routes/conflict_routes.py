@@ -18,6 +18,7 @@ async def get_conflicts(patient_id: str ):
     conflicts = detect_conflicts(records)
 
     return {
-        "patient_id":patient_id,
+        "patient_id": patient_id,
+        "total_conflicts": len(conflicts),
         "conflicts": conflicts
     }
