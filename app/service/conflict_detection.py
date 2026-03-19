@@ -1,6 +1,12 @@
 from collections import defaultdict
 from app.utils.normalization import normalize_dosage,normalize_frequency
 
+SOURCE_PRIORITY = {
+    "hospital": 3,
+    "clinic": 2,
+    "patient": 1
+}
+
 def detect_conflicts(records):
 
     med_map = defaultdict(list)
@@ -14,6 +20,7 @@ def detect_conflicts(records):
                 "source": source,
                 "dosage": normalize_dosage(med.get("dosage")),
                 "frequency": normalize_frequency(med.get("frequency"))
+                "priority": SOURCE_PRIORITY.get(source, 0)
             })
 
     conflicts = []
