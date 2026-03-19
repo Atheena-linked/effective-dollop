@@ -1,4 +1,5 @@
 from collections import defaultdict
+from app.utils.normalization import normalize_dosage,normalize_frequency
 
 def detect_conflicts(records):
 
@@ -11,8 +12,8 @@ def detect_conflicts(records):
             name = med["name"].lower()
             med_map[name].append({
                 "source": source,
-                "dosage": med["dosage"],
-                "frequency": med["frequency"]
+                "dosage": normalize_dosage(med.get("dosage")),
+                "frequency": normalize_frequency(med.get("frequency"))
             })
 
     conflicts = []
