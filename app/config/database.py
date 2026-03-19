@@ -7,3 +7,4 @@ client = AsyncIOMotorClient(MONGO_URL)
 database = client.medication_db
 
 medication_collection = database.get_collection("medications")
+conflict_collection = database.get_collection("conflicts")
