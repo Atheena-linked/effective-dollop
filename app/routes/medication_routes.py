@@ -1,12 +1,23 @@
 from fastapi import APIRouter
 from app.schemas.medication_schema import MedicationRecord
 from app.config.database import medication_collection
+from datetime import datetime
+from app.utils.versioning import get_next_version
 
 router = APIRouter()
 
 @router.post("/medications")
 async def add_medication_record(record:MedicationRecord):
-    await medication_collection.insert_one(record.model_dump())
+    #Load the record  into data
+    data = record.model_dump()
+
+    data["timestamp"] = datetime.utcnow()
+
+    data["version"] = await get_next_version(
+        medication_collection,
+        data["patient_id"]
+    )
+    await medication_collection.insert_one(data)    
     return {"message": "Record stored"}
 
 
