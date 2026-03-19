@@ -40,15 +40,18 @@ def detect_conflicts(records):
         if len(dosages) > 1:
             conflicts.append({
                 "medication": med_name,
-                "type" : "dosage_conflict",
-                "values" : list(dosages)})
+                "type": "dosage_conflict",
+                "values": list(dosages),
+                "confidence": round(len(entries) / len(dosages), 2)
+                })
 
         if len(frequencies) > 1:
             conflicts.append({
                 "medication": med_name,
                 "type": "frequency_conflict",
-                "values": list(frequencies)
-            })
+                "values": list(frequencies),
+                "confidence": round(len(entries) / len(frequencies), 2)
+                })
 
     return conflicts
 
