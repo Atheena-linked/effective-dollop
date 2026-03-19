@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.config.database import medication_collection   
 from app.service.conflict_detection import detect_conflicts
-
+from app.service.conflict_storage import store_conflicts
 router = APIRouter()
 
 @router.get("/conflicts/{patient_id}")
@@ -16,6 +16,8 @@ async def get_conflicts(patient_id: str ):
         records.append(doc)
 
     conflicts = detect_conflicts(records)
+
+    await store_conflicts(patient_id, conflicts)
 
     return {
         "patient_id": patient_id,
