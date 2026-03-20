@@ -1,11 +1,22 @@
 from collections import defaultdict
 from app.utils.normalization import normalize_dosage,normalize_frequency
+from datetime import datetime
 
 SOURCE_PRIORITY = {
     "hospital": 3,
     "clinic": 2,
     "patient": 1
 }
+
+#helper function for sscalable and consistent format of conflicts
+def build_conflict(medication_name, conflict_type, entries):
+    return {
+        "medication_name": medication_name,
+        "conflict_type": conflict_type,
+        "entries": entries,
+        "created_at": datetime.utcnow(),
+        "status": "active"
+    }
 
 def detect_conflicts(records):
 
