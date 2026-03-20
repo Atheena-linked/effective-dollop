@@ -114,14 +114,11 @@ def detect_dosage_and_freq_conflicts(med_map):
     """
     Same drug reported by multiple sources with different dosage or frequency.
     """
-    conflicts = []
-    dosages = set()
-    frequencies = set()
     for med_name, entries in med_map.items():
         if len(entries) < 2:
-            continue  # only one source so there is nothing to compare with
-
-        
+            continue
+        dosages = set()       # resets for every medication
+        frequencies = set()        
 
         for entry in entries:
             dosage_value = entry["dosage"]
