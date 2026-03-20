@@ -2,6 +2,9 @@ from fastapi import APIRouter
 from app.config.database import medication_collection , conflict_collection 
 from app.service.conflict_detection import detect_conflicts
 from app.service.conflict_storage import store_conflicts
+from datetime import datetime
+from bson import ObjectId
+
 router = APIRouter()
 
 @router.post("/conflicts_detect_and_store/{patient_id}")
@@ -42,3 +45,25 @@ async def get_conflicts(patient_id: str, status: str = None):
         conflicts.append(doc)
 
     return conflicts
+
+
+@router.patch("/conflicts/{conflict_id}/resolve")
+async def resolve_conflict(conflict_id: str):
+
+    result = await conflict_collection.update_one(
+        {"_id": ObjectId(conflict_id)},
+        {
+            "$set": {
+                "status": "resolved",
+                "resolved_at": datetime.utcnow()
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        return {"error": "Conflict not found"}
+
+    return {
+        "message": "Conflict marked as resolved",
+        "conflict_id": conflict_id
+    }
