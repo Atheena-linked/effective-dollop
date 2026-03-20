@@ -170,3 +170,8 @@ Source priority (used to indicate which source is most authoritative):
 - Used Claude to review the codebase for bugs before submission — identified the hardcoded file path in `load_rules.py`, the `dict["key", default]` syntax error in `timeline_routes.py`, and the analytics pipeline querying wrong collection fields.
 - Manually reviewed and applied each fix, checking that the logic matched the intended behavior rather than accepting suggestions blindly.
 - Disagreed with the suggestion to add MongoDB index creation inside `database.py` at import time — this runs on every cold start and can cause startup failures if MongoDB is briefly unavailable. Deferred to a migration script instead.
+-Used AI to create readme adn and test dat file
+
+
+# Website hosted on :
+- https://effective-dollop-l16e.onrender.com
