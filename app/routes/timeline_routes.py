@@ -52,9 +52,9 @@ async def diff_versions(patient_id: str, v1: int, v2: int):
         return {"error": f"version {v2} not found"}
 
 
-    meds1 = {m["name"].lower() for m in doc1["medications",[]]}
-    meds2 = {m["name"].lower() for m in doc2["medications",[]]}
-
+    meds1 = {m["name"].lower() for m in doc1.get("medications", [])}
+    meds2 = {m["name"].lower() for m in doc2.get("medications", [])}
+    
     return {
         "patient_id": patient_id,
         "from_version": v1,
