@@ -8,7 +8,7 @@ SOURCE_PRIORITY = {
     "patient": 1
 }
 
-#helper function for sscalable and consistent format of conflicts
+#helper function for scalable and consistent format of conflicts
 def build_conflict(medication_name, conflict_type, entries):
     return {
         "medication_name": medication_name,
@@ -76,12 +76,23 @@ def detect_conflicts(records):
             frequencies.add(frequency_value)
 
         if len(dosages) > 1:
-            conflicts.append({
-                "medication": med_name,
-                "type": "dosage_conflict",
-                "values": list(dosages),
-                "confidence": round(len(entries) / len(dosages), 2)
+            entry_list = []
+
+            for entry in entries:
+                entry_list.append({
+                    "source": entry["source"],
+                    "dosage": entry["dosage"],
+                    "frequency": entry["frequency"],
+                    "timestamp": datetime.utcnow()
                 })
+
+            conflict = build_conflict(
+                med_name,
+                "dosage_conflict",
+                entry_list
+            )
+
+            conflicts.append(conflict)
 
         if len(frequencies) > 1:
             conflicts.append({
@@ -92,4 +103,3 @@ def detect_conflicts(records):
                 })
 
     return conflicts
-    
