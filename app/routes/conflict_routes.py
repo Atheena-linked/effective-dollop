@@ -22,6 +22,10 @@ async def detect_and_store_conflicts(patient_id: str ):
         records.append(doc)
     print("TOTAL RECORDS:", len(records))
 
+    if not records:
+        raise HTTPException(status_code=404, detail="No medication records found for this patient")
+
+
     conflicts = detect_conflicts(records)
 
     await store_conflicts(patient_id, conflicts)
