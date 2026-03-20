@@ -41,7 +41,12 @@ def detect_conflicts(records):
 
     conflicts = []
 
-    all_sources = list(meds_by_source.keys())
+    all_sources = []
+    for record in records:
+        source = record["source"]
+
+        if source not in all_sources:
+            all_sources.append(source)
 
     for source_a in all_sources:
         for source_b in all_sources:
@@ -132,5 +137,5 @@ def detect_conflicts(records):
             )
 
             conflicts.append(conflict)
-
+    
     return conflicts

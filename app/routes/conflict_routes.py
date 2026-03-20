@@ -15,8 +15,10 @@ async def detect_and_store_conflicts(patient_id: str ):
     cursor = medication_collection.find({"patient_id":patient_id})
 
     async for doc in cursor:
+        print(doc)
         doc["_id"] =  str(doc["_id"])
         records.append(doc)
+    print("TOTAL RECORDS:", len(records))
 
     conflicts = detect_conflicts(records)
 
@@ -42,6 +44,7 @@ async def get_conflicts(patient_id: str, status: str = None):
 
     async for doc in cursor:
         doc["_id"] = str(doc["_id"]) 
+        
         conflicts.append(doc)
 
     return conflicts
