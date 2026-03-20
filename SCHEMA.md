@@ -190,7 +190,6 @@ conflict_collection.create_index([("created_at", -1)])
 
 ---
 
-## Design Trade-offs
 
 ### Denormalization vs references
 
