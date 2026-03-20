@@ -8,6 +8,10 @@ router = APIRouter()
 
 @router.post("/medications")
 async def add_medication_record(record:MedicationRecord):
+    """
+    Ingest a medication list for a patient from a given source. Assigns a version and timestamp.
+    """
+
     #Load the record  into data
     data = record.model_dump()
 
@@ -24,7 +28,9 @@ async def add_medication_record(record:MedicationRecord):
 
 @router.get("/medications/{patient_id}")
 async def get_medication_records(patient_id: str):
-
+    """
+    Return all medication snapshots ever recorded for a patient across all sources.
+    """
     records = []
 
     cursor = medication_collection.find({"patient_id":patient_id})

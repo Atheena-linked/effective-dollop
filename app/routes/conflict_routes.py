@@ -11,7 +11,10 @@ router = APIRouter()
 
 @router.post("/conflicts_detect_and_store/{patient_id}")
 async def detect_and_store_conflicts(patient_id: str ):
-
+    """
+    Run conflict detection across all medication records for a patient
+    and persist any new conflicts found. Returns the full list of detected conflicts.
+    """
     records = []
     
     cursor = medication_collection.find({"patient_id":patient_id})
@@ -38,7 +41,10 @@ async def detect_and_store_conflicts(patient_id: str ):
 
 @router.get("/conflicts/{patient_id}")
 async def get_conflicts(patient_id: str, status: str = None):
-    
+    """
+    Return all conflicts for a patient. Optionally filter by status
+    using the ?status=active or ?status=resolved query parameter.
+    """
     query = {"patient_id": patient_id}
 
     if status:
@@ -58,7 +64,7 @@ async def get_conflicts(patient_id: str, status: str = None):
 
 @router.patch("/conflicts/{conflict_id}/resolve")
 async def resolve_conflict(conflict_id: str):
-
+    """Mark a conflict as resolved by its MongoDB ObjectId."""
     try:
         oid = ObjectId(conflict_id)
     except InvalidId:

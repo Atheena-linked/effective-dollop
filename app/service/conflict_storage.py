@@ -2,7 +2,11 @@ from datetime import datetime
 from app.config.database import conflict_collection
 
 async def store_conflicts(patient_id: str, conflicts: list):
-
+    """
+    Persist detected conflicts to MongoDB, skipping duplicates.
+    A conflict is considered a duplicate if an active conflict for the
+    same patient and medication name already exists.
+    """
     for conflict in conflicts:
 
         existing = await conflict_collection.find_one({

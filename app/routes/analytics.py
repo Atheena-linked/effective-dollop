@@ -6,7 +6,9 @@ router = APIRouter()
 
 @router.get("/patients/high-conflicts")
 async def get_patients_with_high_conflicts():
-
+    """
+    Return all patients who have more than 1 unresolved conflict.
+    """
     pipeline = [
         {
             "$group": {
@@ -36,7 +38,10 @@ async def get_patients_with_high_conflicts():
 
 @router.get("/analytics/conflicts-per-clinic")
 async def conflicts_per_clinic():
-
+    """
+    Return clinics with patients who had 2 or more conflicts in the last 30 days.
+    Groups by clinic and counts qualifying patients.
+    """
     last_30_days = datetime.utcnow() - timedelta(days=30)
 
 

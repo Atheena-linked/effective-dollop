@@ -14,6 +14,10 @@ SOURCE_PRIORITY = {
 
 
 def build_conflict(medication_name, conflict_type, entries, severity="medium", description=None):
+    """
+    Build a standardized conflict dict ready for storage in MongoDB.
+    
+    """
     return {
         "medication_name": medication_name,
         "conflict_type": conflict_type,
@@ -195,6 +199,10 @@ def detect_drug_interactions(med_map):
     return conflicts
 
 def detect_conflicts(records):
+    """
+    Orchestrate all conflict detectors and return a combined list.
+    Runs missing, dosage/frequency, and drug interaction checks.
+    """
     meds_by_source, med_map = build_med_index(records)
 
     conflicts = (
