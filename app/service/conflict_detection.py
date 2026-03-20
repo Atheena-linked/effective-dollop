@@ -53,16 +53,35 @@ def detect_conflicts(records):
             meds_b = meds_by_source[source_b]
 
             missing_meds = meds_a - meds_b
-
             for med in missing_meds:
-                conflicts.append({
-                    "medication": med,
-                    "type": "missing_medication",
-                    "present_in": source_a,
-                    "missing_in": source_b,
-                    "confidence": 1.0
+                entry_list = []
+
+                # Getting data such as freq and dosage from source a where med exist
+                for entry in med_map[med]:
+                    if entry["source"] == source_a:
+                        entry_list.append({
+                            "source": source_a,
+                            "dosage": entry["dosage"],
+                            "frequency": entry["frequency"],
+                            "timestamp": datetime.utcnow()
+                        })
+                        break
+
+                # adding missing source and data
+                entry_list.append({
+                    "source": source_b,
+                    "dosage": None,
+                    "frequency": None,
+                    "timestamp": datetime.utcnow()
                 })
 
+                conflicts.append(
+                    build_conflict(
+                        med,
+                        "missing_medication",
+                        entry_list
+                    )
+                )
     for med_name, entries in med_map.items():
 
         dosages = set()
