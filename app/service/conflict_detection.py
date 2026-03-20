@@ -114,6 +114,7 @@ def detect_dosage_and_freq_conflicts(med_map):
     """
     Same drug reported by multiple sources with different dosage or frequency.
     """
+    conflicts = []
     for med_name, entries in med_map.items():
         if len(entries) < 2:
             continue
@@ -138,12 +139,8 @@ def detect_dosage_and_freq_conflicts(med_map):
                     "timestamp": datetime.utcnow()
                 })
 
-            conflict = build_conflict(
-                med_name,
-                "dosage_conflict",
-                entry_list
-            )
 
+            conflicts.append(build_conflict(med_name, "dosage_conflict", entry_list))
     
 
         if len(frequencies) > 1:
