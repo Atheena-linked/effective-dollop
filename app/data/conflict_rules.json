@@ -1,0 +1,22 @@
+{
+  "conflicts": [
+    {
+      "drug_1": "Aspirin",
+      "drug_2": "Ibuprofen",
+      "severity": "high",
+      "description": "Increased risk of bleeding"
+    },
+    {
+      "drug_1": "Paracetamol",
+      "drug_2": "Alcohol",
+      "severity": "medium",
+      "description": "Liver damage risk"
+    },
+    {
+      "drug_1": "Metformin",
+      "drug_2": "Alcohol",
+      "severity": "high",
+      "description": "Risk of lactic acidosis"
+    }
+  ]
+}
