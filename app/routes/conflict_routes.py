@@ -50,10 +50,6 @@ async def get_conflicts(patient_id: str, status: str = None):
 @router.patch("/conflicts/{conflict_id}/resolve")
 async def resolve_conflict(conflict_id: str):
 
-    
-    print(conflict_id) #################
-    doc = await conflict_collection.find_one({"_id": ObjectId(conflict_id)})#################
-    print(doc)#################
 
 
     result = await conflict_collection.update_one(
