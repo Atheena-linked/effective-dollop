@@ -9,13 +9,18 @@ SOURCE_PRIORITY = {
 
 def detect_conflicts(records):
 
+    meds_by_source = defaultdict(set)
     med_map = defaultdict(list)
 
     for record in records:
         source = record["source"]
 
         for med in record["medications"]:
-            name = med["name"].lower()
+
+            name = med["name"].lower().strip()
+
+            meds_by_source[source].add(name) 
+
             med_map[name].append({
                 "source": source,
                 "dosage": normalize_dosage(med.get("dosage")),
@@ -24,6 +29,28 @@ def detect_conflicts(records):
             })
 
     conflicts = []
+
+    all_sources = list(meds_by_source.keys())
+
+    for source_a in all_sources:
+        for source_b in all_sources:
+
+            if source_a == source_b:
+                continue
+
+            meds_a = meds_by_source[source_a]
+            meds_b = meds_by_source[source_b]
+
+            missing_meds = meds_a - meds_b
+
+            for med in missing_meds:
+                conflicts.append({
+                    "medication": med,
+                    "type": "missing_medication",
+                    "present_in": source_a,
+                    "missing_in": source_b,
+                    "confidence": 1.0
+                })
 
     for med_name, entries in med_map.items():
 
