@@ -1,9 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.config.database import medication_collection , conflict_collection 
 from app.service.conflict_detection import detect_conflicts
 from app.service.conflict_storage import store_conflicts
 from datetime import datetime
 from bson import ObjectId
+from bson.errors import InvalidId
+
 
 router = APIRouter()
 
@@ -53,10 +55,15 @@ async def get_conflicts(patient_id: str, status: str = None):
 @router.patch("/conflicts/{conflict_id}/resolve")
 async def resolve_conflict(conflict_id: str):
 
+    try:
+        oid = ObjectId(conflict_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid conflict ID format")
+
 
 
     result = await conflict_collection.update_one(
-        {"_id": ObjectId(conflict_id)},
+        {"_id": oid},
         {
             "$set": {
                 "status": "resolved",
@@ -67,7 +74,7 @@ async def resolve_conflict(conflict_id: str):
 
     if result.matched_count == 0:
         return {"error": "Conflict not found"}
-
+    
     return {
         "message": "Conflict marked as resolved",
         "conflict_id": conflict_id
