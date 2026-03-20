@@ -11,17 +11,6 @@ SOURCE_PRIORITY = {
 }
 
 #helper function for scalable and consistent format of conflicts
-def build_conflict(medication_name, conflict_type, entries, severity="medium", description=None):
-    return {
-        "medication_name": medication_name,
-        "conflict_type": conflict_type,
-        "entries": entries,
-        "severity": severity,
-        "description": description,
-        "created_at": datetime.utcnow(),
-        "status": "active"
-    }
-
 
 
 def build_conflict(medication_name, conflict_type, entries, severity="medium", description=None):
