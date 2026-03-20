@@ -27,3 +27,15 @@ async def get_timeline(patient_id: str):
         "patient_id": patient_id,
         "timeline": timeline
     }
+
+@router.get("/patients/{patient_id}/timeline/{version}")
+async def get_specific_version(patient_id: str, version: int):
+    doc = await medication_collection.find_one({
+        "patient_id": patient_id,
+        "version": version
+    })
+    if not doc:
+        return {"error": "Version not found"}
+    
+    doc["_id"] = str(doc["_id"])
+    return doc
