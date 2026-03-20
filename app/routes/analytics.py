@@ -15,7 +15,7 @@ async def get_patients_with_high_conflicts():
         },
         {
             "$match": {
-                "conflict_count": {"$gt": 2}
+                "conflict_count": {"$gt": 1}
             }
         }
     ]
