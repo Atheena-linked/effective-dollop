@@ -95,11 +95,23 @@ def detect_conflicts(records):
             conflicts.append(conflict)
 
         if len(frequencies) > 1:
-            conflicts.append({
-                "medication": med_name,
-                "type": "frequency_conflict",
-                "values": list(frequencies),
-                "confidence": round(len(entries) / len(frequencies), 2)
+            
+            entry_list = []
+
+            for entry in entries:
+                entry_list.append({
+                    "source": entry["source"],
+                    "dosage": entry["dosage"],
+                    "frequency": entry["frequency"],
+                    "timestamp": datetime.utcnow()
                 })
+
+            conflict = build_conflict(
+                med_name,
+                "frequency_conflict",
+                entry_list
+            )
+
+            conflicts.append(conflict)
 
     return conflicts
