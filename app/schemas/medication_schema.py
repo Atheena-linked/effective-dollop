@@ -13,7 +13,7 @@ class MedicationRecord(BaseModel):
     medications: List[Medication]
 
     
-    
+class MedicationDocument(MedicationRecord):   
     timestamp: Optional[datetime] = None
     version: Optional[int] = None
 
