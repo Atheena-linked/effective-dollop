@@ -274,3 +274,12 @@ pytest tests/test_conflicts.py -v
 ## AI Tools Used
 
 Used AI to assist with debugging, code review,  generating test data and test cases and README.md and SCHEMA.md files
+
+## Deadline extension
+## Submission Notes
+
+**Original deadline:** March 20, 2026  - 10:00 PM
+**Extended deadline (university):** March 21, 2026 — 3:00 PM  
+**Extended deadline (company):** March 21, 2026 — 11:59 PM  
+
+Submission is made within the final extended deadline of March 21, 2026 at 11:59 PM as communicated by the company. No further extension is required.

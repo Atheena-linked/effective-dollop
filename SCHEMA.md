@@ -86,7 +86,51 @@ Stores detected conflicts as auditable records. A conflict is created when the s
   "created_at": "2026-03-20T10:05:00Z",
   "resolved_at": null,
   "resolution_note": null,
-  "resolved_by_source": null
+  "resolved_by_source": null,
+  "resolved_value": null
+}
+```
+
+### Document Structure — After Smart Resolution
+
+When resolved via `POST /conflicts/{id}/resolve/smart`, the document is updated with the full scoring audit trail:
+
+```json
+{
+  "status": "resolved",
+  "resolved_at": "2026-03-20T11:00:00Z",
+  "resolution_note": "'1000mg once daily' chosen — score 5 (priority=3, appearances=1, recency=1), supported by: hospital_discharge",
+  "resolved_by_source": "hospital_discharge",
+  "resolved_value": {
+    "dosage": "1000mg",
+    "frequency": "once daily",
+    "score": 5,
+    "supporting_sources": ["hospital_discharge"],
+    "all_scores": [
+      {
+        "dosage": "1000mg",
+        "frequency": "once daily",
+        "score": 5,
+        "breakdown": {
+          "source_priority": 3,
+          "appearance_count": 1,
+          "recency_bonus": 1
+        },
+        "supporting_sources": ["hospital_discharge"]
+      },
+      {
+        "dosage": "500mg",
+        "frequency": "twice daily",
+        "score": 3,
+        "breakdown": {
+          "source_priority": 2,
+          "appearance_count": 1,
+          "recency_bonus": 0
+        },
+        "supporting_sources": ["clinic_emr"]
+      }
+    ]
+  }
 }
 ```
 
@@ -107,9 +151,10 @@ Stores detected conflicts as auditable records. A conflict is created when the s
 | `entries[].timestamp` | datetime | When this source's record was ingested |
 | `status` | string | `active` or `resolved` |
 | `created_at` | datetime | UTC time the conflict was first detected |
-| `resolved_at` | datetime / null | UTC time a clinician marked it resolved |
-| `resolution_note` | string / null | Free-text reason the clinician provided for resolution |
+| `resolved_at` | datetime / null | UTC time the conflict was resolved |
+| `resolution_note` | string / null | Free-text clinician note, or auto-generated scoring breakdown for smart resolution |
 | `resolved_by_source` | string / null | Which source was chosen as authoritative when resolving |
+| `resolved_value` | object / null | Populated by smart resolution only — contains the winning dosage/frequency and full scoring breakdown for all candidates |
 
 ### Conflict Types
 
@@ -122,7 +167,23 @@ Stores detected conflicts as auditable records. A conflict is created when the s
 
 ### Resolution Design Decision
 
-Resolution is explicit — a clinician must call `PATCH /conflicts/{id}/resolve` with a `resolution_note` and optionally `resolved_by_source`. The system does not auto-resolve because there is no canonical truth source. The `resolved_by_source` field records which source the clinician trusted, providing an audit trail for why the conflict was closed.
+Two resolution paths exist:
+
+**Manual resolution** — a clinician calls `PATCH /conflicts/{id}/resolve` with a `resolution_note` and optionally `resolved_by_source`. Used for drug interaction conflicts and any case where clinical judgement overrides the algorithm.
+
+**Smart resolution** — a clinician calls `POST /conflicts/{id}/resolve/smart`. The system scores every reported `(dosage, frequency)` candidate using:
+
+```
+score = source_priority + appearance_count + recency_bonus
+```
+
+| Factor | Description |
+|---|---|
+| `source_priority` | Priority of the highest-trust source reporting this value: `hospital_discharge=3`, `clinic_emr=2`, `patient_reported=1` |
+| `appearance_count` | Number of distinct sources reporting this exact dosage + frequency combination |
+| `recency_bonus` | +1 if any supporting record is within the last 7 days, else 0 |
+
+The highest-scoring candidate is chosen. Ties are broken by source priority. The full scoring breakdown for all candidates is stored in `resolved_value` as an auditable record. Drug interaction conflicts are excluded from smart resolution — they require a clinician decision.
 
 ---
 
@@ -138,6 +199,18 @@ Not a MongoDB collection — a static JSON file loaded once at startup. Defines 
       "drug_2": "Ibuprofen",
       "severity": "high",
       "description": "Increased risk of bleeding"
+    },
+    {
+      "drug_1": "Paracetamol",
+      "drug_2": "Alcohol",
+      "severity": "medium",
+      "description": "Liver damage risk"
+    },
+    {
+      "drug_1": "Metformin",
+      "drug_2": "Alcohol",
+      "severity": "high",
+      "description": "Risk of lactic acidosis"
     }
   ]
 }
@@ -184,12 +257,14 @@ conflict_collection.create_index([("created_at", -1)])
 | Index | Reason |
 |---|---|
 | `(patient_id, version)` | Every conflict detection run fetches all records for a patient — without this it is a full collection scan |
+| `(patient_id, timestamp)` | `get_next_version()` sorts by version descending on every ingestion — needs to be fast |
 | `(patient_id, status)` | Analytics and conflict list endpoints always filter by both fields together |
 | `(patient_id, medication_name, status)` | The dedup check in `conflict_storage.py` runs this exact query on every ingestion — needs to be fast |
 | `(created_at)` | The 30-day analytics window does a range scan on this field across the full collection |
 
 ---
 
+## Trade-offs
 
 ### Denormalization vs references
 
@@ -199,8 +274,15 @@ Conflict `entries` embed the source, dosage, frequency, and timestamp directly i
 
 Each medication snapshot stores the full list of medications for that source. For typical patients (5–20 medications) this is well under MongoDB's 16MB document limit. A patient with hundreds of medications and thousands of ingestion events would grow the collection but not individual documents, since each ingestion is a new document.
 
+### Resolved value storage
+
+Smart resolution stores the full `all_scores` array inside the conflict document. For a patient with many sources and many medications this array stays small (one entry per unique dosage/frequency pair), so document size is not a concern. The benefit is a fully self-contained audit trail — no separate collection needed to explain why a conflict was resolved the way it was.
+
 ### Future extensibility
 
 - Adding a new conflict type requires only a new detector function in `conflict_detection.py` and a new `conflict_type` value — no schema migration needed.
 - Adding clinic metadata (e.g. `clinic_id`, `clinic_name`) to conflicts would require storing it at ingestion time in the medication document and propagating it to conflict entries — the current schema does not carry clinic identity beyond the `source` field.
+- The smart resolution scoring weights (`SOURCE_PRIORITY`, `RECENCY_DAYS`) are constants in `conflict_resolution.py` — moving them to a config file or database document would allow tuning without a code deploy.
 - Time-to-live (TTL) indexes could be added to auto-archive resolved conflicts older than a threshold, keeping the active working set small.
+- Update endpoint can be added
+- A mechanism to create a new snapshot after resolution with source as resolution 
