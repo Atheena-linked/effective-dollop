@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.config.database import conflict_collection, medication_collection
 from datetime import datetime, timedelta
 
@@ -55,12 +55,18 @@ async def get_timeline(patient_id: str):
 
 @router.get("/patients/{patient_id}/timeline/{version}")
 async def get_specific_version(patient_id: str, version: int):
+    # First check if patient exists at all
+    patient_exists = await medication_collection.find_one({"patient_id": patient_id})
+    if not patient_exists:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    # Then check if that version exists
     doc = await medication_collection.find_one({
         "patient_id": patient_id,
         "version": version
     })
     if not doc:
-        return {"error": "Version not found"}
+        raise HTTPException(status_code=404, detail=f"Version {version} not found for patient {patient_id}")
 
     doc["_id"] = str(doc["_id"])
     return doc
