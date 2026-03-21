@@ -39,6 +39,10 @@ async def get_medication_records(patient_id: str):
         doc["_id"] = str(doc["_id"])
         records.append(doc)
 
+
+    if not records:
+        return {"error": f"No records found for patient {patient_id}"}
+
     return {
         "patient_id": patient_id,
         "records": records
