@@ -74,13 +74,19 @@ async def get_specific_version(patient_id: str, version: int):
 
 @router.get("/patients/{patient_id}/timeline/diff/{v1}/{v2}")
 async def diff_versions(patient_id: str, v1: int, v2: int):
+
+    patient_exists = await medication_collection.find_one({"patient_id": patient_id})
+    if not patient_exists:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
     doc1 = await medication_collection.find_one({"patient_id": patient_id, "version": v1})
     doc2 = await medication_collection.find_one({"patient_id": patient_id, "version": v2})
 
     if not doc1:
-        return {"error": f"version {v1} not found"}
+        raise HTTPException(status_code=404, detail=f"Version {v1} not found for patient {patient_id}")
     if not doc2:
-        return {"error": f"version {v2} not found"}
+        raise HTTPException(status_code=404, detail=f"Version {v2} not found for patient {patient_id}")
+
 
     meds1 = {m["name"].lower() for m in doc1.get("medications", [])}
     meds2 = {m["name"].lower() for m in doc2.get("medications", [])}
