@@ -312,9 +312,9 @@ class TestIngestionEndpoint:
         assert response.json() == {"message": "Record stored"}
 
     def test_empty_medications_list_rejected(self):
-        # Test the validator directly — empty list should raise ValueError
-        with pytest.raises(Exception) as exc_info:
-            from app.schemas.medication_schema import MedicationRecord
+        from pydantic import ValidationError
+        from app.schemas.medication_schema import MedicationRecord
+        with pytest.raises(ValidationError) as exc_info:
             MedicationRecord(
                 patient_id="P001",
                 source="clinic_emr",
@@ -323,9 +323,9 @@ class TestIngestionEndpoint:
         assert "empty" in str(exc_info.value).lower()
 
     def test_blank_patient_id_rejected(self):
-        # Test the validator directly — blank patient_id should raise ValueError
-        with pytest.raises(Exception) as exc_info:
-            from app.schemas.medication_schema import MedicationRecord
+        from pydantic import ValidationError
+        from app.schemas.medication_schema import MedicationRecord
+        with pytest.raises(ValidationError) as exc_info:
             MedicationRecord(
                 patient_id="   ",
                 source="clinic_emr",
@@ -389,3 +389,216 @@ class TestAggregationEndpoints:
         response = client.get("/analytics/conflicts-per-clinic")
         assert response.status_code == 200
         assert "clinics" in response.json()
+
+
+# ─────────────────────────────────────────────────────────────────
+# SMART RESOLUTION — SCORING UNIT TESTS
+# ─────────────────────────────────────────────────────────────────
+
+class TestScoringAlgorithm:
+
+    def test_higher_priority_source_wins(self):
+        """Hospital discharge should outscore patient reported."""
+        from app.service.conflict_resolution import score_candidates
+        records = [
+            make_record("P001", "hospital_discharge", [{"name": "metformin", "dosage": "1000mg", "frequency": "once daily"}]),
+            make_record("P001", "patient_reported", [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}]),
+        ]
+        result = score_candidates("metformin", records)
+        assert result is not None
+        assert result["winner"]["dosage"] == "1000mg"
+
+    def test_multiple_sources_agreeing_boosts_score(self):
+        """Clinic + patient both say 500mg — should beat hospital alone saying 1000mg."""
+        from app.service.conflict_resolution import score_candidates
+        records = [
+            make_record("P001", "clinic_emr", [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}]),
+            make_record("P001", "patient_reported", [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}]),
+            make_record("P001", "hospital_discharge", [{"name": "metformin", "dosage": "1000mg", "frequency": "once daily"}]),
+        ]
+        result = score_candidates("metformin", records)
+        # clinic(2) + appearance(2) = 4 vs hospital(3) + appearance(1) = 4
+        # tie broken by source_priority — hospital wins tie
+        assert result is not None
+        assert result["winner"] is not None
+
+    def test_recency_bonus_applied(self):
+        """A recent record should get +1 recency bonus."""
+        from app.service.conflict_resolution import score_candidates
+        from datetime import datetime, timezone, timedelta
+        recent_record = {
+            "patient_id": "P001",
+            "source": "clinic_emr",
+            "medications": [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}],
+            "timestamp": datetime.now(timezone.utc) - timedelta(days=2)  # within 7 days
+        }
+        old_record = {
+            "patient_id": "P001",
+            "source": "hospital_discharge",
+            "medications": [{"name": "metformin", "dosage": "1000mg", "frequency": "once daily"}],
+            "timestamp": datetime.now(timezone.utc) - timedelta(days=30)  # older than 7 days
+        }
+        result = score_candidates("metformin", [recent_record, old_record])
+        # Find clinic candidate and check recency bonus
+        clinic_candidate = next(
+            c for c in result["all_scores"] if c["dosage"] == "500mg"
+        )
+        assert clinic_candidate["breakdown"]["recency_bonus"] == 1
+
+    def test_no_recency_bonus_for_old_records(self):
+        """Records older than 7 days should get recency_bonus = 0."""
+        from app.service.conflict_resolution import score_candidates
+        from datetime import datetime, timezone, timedelta
+        old_record = {
+            "patient_id": "P001",
+            "source": "clinic_emr",
+            "medications": [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}],
+            "timestamp": datetime.now(timezone.utc) - timedelta(days=20)
+        }
+        result = score_candidates("metformin", [old_record])
+        assert result["winner"]["breakdown"]["recency_bonus"] == 0
+
+    def test_returns_none_for_unknown_medication(self):
+        """If the medication doesn't exist in any record, return None."""
+        from app.service.conflict_resolution import score_candidates
+        records = [
+            make_record("P001", "clinic_emr", [{"name": "metformin", "dosage": "500mg", "frequency": "once daily"}]),
+        ]
+        result = score_candidates("nonexistent_drug", records)
+        assert result is None
+
+    def test_all_scores_returned(self):
+        """all_scores should contain one entry per unique (dosage, frequency) candidate."""
+        from app.service.conflict_resolution import score_candidates
+        records = [
+            make_record("P001", "clinic_emr", [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}]),
+            make_record("P001", "hospital_discharge", [{"name": "metformin", "dosage": "1000mg", "frequency": "once daily"}]),
+        ]
+        result = score_candidates("metformin", records)
+        assert len(result["all_scores"]) == 2
+
+    def test_scoring_breakdown_present(self):
+        """Result should include a human-readable scoring breakdown string."""
+        from app.service.conflict_resolution import score_candidates
+        records = [
+            make_record("P001", "clinic_emr", [{"name": "metformin", "dosage": "500mg", "frequency": "twice daily"}]),
+        ]
+        result = score_candidates("metformin", records)
+        assert "scoring_breakdown" in result
+        assert isinstance(result["scoring_breakdown"], str)
+        assert len(result["scoring_breakdown"]) > 0
+
+
+# ─────────────────────────────────────────────────────────────────
+# SMART RESOLUTION — ENDPOINT TESTS
+# ─────────────────────────────────────────────────────────────────
+
+class TestSmartResolveEndpoint:
+
+    @patch("app.routes.conflict_routes.score_candidates")
+    @patch("app.routes.conflict_routes.medication_collection")
+    @patch("app.routes.conflict_routes.conflict_collection")
+    def test_smart_resolve_returns_200(self, mock_conflict_col, mock_med_col, mock_score):
+        """Valid dosage conflict should resolve successfully."""
+        from bson import ObjectId
+        fake_id = ObjectId()
+
+        mock_conflict_col.find_one = AsyncMock(return_value={
+            "_id": fake_id,
+            "patient_id": "P001",
+            "medication_name": "metformin",
+            "conflict_type": "dosage_conflict",
+            "status": "active"
+        })
+
+        # Return one record so the "no records found" guard doesn't fire
+        class FakeMedCursor:
+            def __init__(self):
+                self._done = False
+            def __aiter__(self): return self
+            async def __anext__(self):
+                if not self._done:
+                    self._done = True
+                    return {
+                        "_id": "abc123",
+                        "patient_id": "P001",
+                        "source": "hospital_discharge",
+                        "medications": [{"name": "metformin", "dosage": "1000mg", "frequency": "once daily"}],
+                        "timestamp": None
+                    }
+                raise StopAsyncIteration
+
+        mock_med_col.find = MagicMock(return_value=FakeMedCursor())
+        mock_conflict_col.update_one = AsyncMock(return_value=MagicMock())
+
+        mock_score.return_value = {
+            "medication_name": "metformin",
+            "winner": {
+                "dosage": "1000mg",
+                "frequency": "once daily",
+                "score": 5,
+                "breakdown": {"source_priority": 3, "appearance_count": 1, "recency_bonus": 1},
+                "supporting_sources": ["hospital_discharge"]
+            },
+            "all_scores": [],
+            "scoring_breakdown": "1000mg once daily chosen — score 5"
+        }
+
+        response = client.post(f"/conflicts/{str(fake_id)}/resolve/smart")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["resolved_value"]["dosage"] == "1000mg"
+        assert "score" in data
+        assert "breakdown" in data
+
+    @patch("app.routes.conflict_routes.conflict_collection")
+    def test_smart_resolve_blocks_drug_interaction(self, mock_conflict_col):
+        """Drug interaction conflicts should return 400 — must be resolved manually."""
+        from bson import ObjectId
+        fake_id = ObjectId()
+
+        mock_conflict_col.find_one = AsyncMock(return_value={
+            "_id": fake_id,
+            "patient_id": "P001",
+            "medication_name": "aspirin + ibuprofen",
+            "conflict_type": "drug_interaction",
+            "status": "active"
+        })
+
+        response = client.post(f"/conflicts/{str(fake_id)}/resolve/smart")
+        assert response.status_code == 400
+        assert "drug interaction" in response.json()["detail"].lower()
+
+    @patch("app.routes.conflict_routes.conflict_collection")
+    def test_smart_resolve_blocks_already_resolved(self, mock_conflict_col):
+        """Already resolved conflicts should return 400."""
+        from bson import ObjectId
+        fake_id = ObjectId()
+
+        mock_conflict_col.find_one = AsyncMock(return_value={
+            "_id": fake_id,
+            "patient_id": "P001",
+            "medication_name": "metformin",
+            "conflict_type": "dosage_conflict",
+            "status": "resolved"
+        })
+
+        response = client.post(f"/conflicts/{str(fake_id)}/resolve/smart")
+        assert response.status_code == 400
+        assert "already resolved" in response.json()["detail"].lower()
+
+    def test_smart_resolve_invalid_id_returns_400(self):
+        """Invalid ObjectId format should return 400."""
+        response = client.post("/conflicts/not-a-valid-id/resolve/smart")
+        assert response.status_code == 400
+        assert "invalid" in response.json()["detail"].lower()
+
+    @patch("app.routes.conflict_routes.conflict_collection")
+    def test_smart_resolve_not_found_returns_404(self, mock_conflict_col):
+        """Non-existent conflict ID should return 404."""
+        from bson import ObjectId
+        fake_id = ObjectId()
+        mock_conflict_col.find_one = AsyncMock(return_value=None)
+
+        response = client.post(f"/conflicts/{str(fake_id)}/resolve/smart")
+        assert response.status_code == 404
